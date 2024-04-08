@@ -22,7 +22,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 public class App {
 
-    private static String clientId = "demo_client";
+    private static String clientId = "ctrl";
     private static String topic = "device/+/sensor/+";
 
     private static Map<String, List<StoredMessage>> db = new HashMap<>();
@@ -119,6 +119,8 @@ public class App {
 
             client.setCallback(new MqttCallback() {
                 public void messageArrived(String topic, MqttMessage message) throws Exception {
+                    System.out.println("Received message on topic: " + topic + ", with payload: \""
+                            + new String(message.getPayload()) + "\"");
                     listen(topic, message, objectMapper, client);
                 }
 
