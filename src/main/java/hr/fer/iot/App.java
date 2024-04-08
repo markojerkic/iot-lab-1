@@ -6,6 +6,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.commons.cli.CommandLine;
+import org.apache.commons.cli.CommandLineParser;
+import org.apache.commons.cli.DefaultParser;
+import org.apache.commons.cli.Options;
+import org.apache.commons.cli.ParseException;
 import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken;
 import org.eclipse.paho.client.mqttv3.MqttCallback;
 import org.eclipse.paho.client.mqttv3.MqttClient;
@@ -15,13 +20,8 @@ import org.eclipse.paho.client.mqttv3.MqttMessage;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-/**
- * Hello world!
- *
- */
 public class App {
 
-    private static String broker = "tcp://localhost:1884";
     private static String clientId = "demo_client";
     private static String topic = "device/+/sensor/+";
 
@@ -74,7 +74,9 @@ public class App {
 
         try {
             String[] parts = topic.split("/");
-            assert parts.length == 4;
+            if (parts.length != 4) {
+                System.err.println("Topic is not valid: \"" + topic + "\"");
+            }
 
             String deviceId = parts[1];
             String sensorType = parts[3];
@@ -99,11 +101,19 @@ public class App {
         }
     }
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws ParseException {
         System.out.println("CTRL started");
+
+        Options cliOptions = new Options();
+        cliOptions.addRequiredOption("b", "broker-addr", true, "Address of the broker. Example tcp://localhost:1884");
+        CommandLineParser parser = new DefaultParser();
+        CommandLine cmd = parser.parse(cliOptions, args);
+
+        String brokerAddr = cmd.getOptionValue("b");
+
         ObjectMapper objectMapper = new ObjectMapper();
 
-        try (MqttClient client = new MqttClient(broker, clientId)) {
+        try (MqttClient client = new MqttClient(brokerAddr, clientId)) {
             MqttConnectOptions options = new MqttConnectOptions();
             client.connect(options);
 
@@ -125,9 +135,9 @@ public class App {
             client.subscribe(topic, qos);
 
         } catch (MqttException e) {
-            System.err.println("Error connecting to broker");
-            e.printStackTrace();
             if (!e.getMessage().equals("Client is connected")) {
+                System.err.println("Error connecting to broker");
+                e.printStackTrace();
             }
         }
     }
