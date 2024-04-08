@@ -48,7 +48,7 @@ public class App {
                                 .getBytes());
                 newMessage.setQos(1);
                 try {
-                    client.publish("/device/WED", newMessage);
+                    client.publish("device/WED", newMessage);
                 } catch (MqttException e) {
                     System.err.println("Error sending message to broker");
                     e.printStackTrace();
@@ -60,7 +60,7 @@ public class App {
                             .getBytes());
             newMessage.setQos(1);
             try {
-                client.publish("/device/ESP", newMessage);
+                client.publish("device/ESP", newMessage);
             } catch (MqttException e) {
                 System.err.println("Error sending message to broker");
                 e.printStackTrace();
