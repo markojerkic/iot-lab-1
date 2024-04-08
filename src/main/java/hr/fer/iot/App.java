@@ -23,32 +23,51 @@ public class App {
 
     private static String broker = "tcp://localhost:1884";
     private static String clientId = "demo_client";
-    private static String topic = "/device/+/sensor/+";
+    private static String topic = "device/+/sensor/+";
 
     private static Map<String, List<StoredMessage>> db = new HashMap<>();
 
-    private static void readAndSendActuatorMessage(String deviceId, MqttClient client) {
+    private static void readAndSendActuatorMessage(String deviceId, int movement, MqttClient client) {
         long currentTimeMillis = System.currentTimeMillis();
         int count = 0;
         List<StoredMessage> readings = db.get(deviceId);
 
-        for (StoredMessage message : readings) {
-            if (currentTimeMillis - message.getTime() <= 60 * 1000) {
-                count++;
-            }
-        }
+        if (movement != 1)
+            return;
 
-        if (count > 2) {
+        if (deviceId.equals("ESP")) {
+            for (StoredMessage message : readings) {
+                if (currentTimeMillis - message.getTime() <= 60 * 1000) {
+                    count++;
+                }
+            }
+
+            if (count > 2) {
+                MqttMessage newMessage = new MqttMessage(
+                        String.format("Device \"%s\" had %d movements in last two minutes.", deviceId, count)
+                                .getBytes());
+                newMessage.setQos(1);
+                try {
+                    client.publish("/device/WED", newMessage);
+                } catch (MqttException e) {
+                    System.err.println("Error sending message to broker");
+                    e.printStackTrace();
+                }
+            }
+        } else if (deviceId.equals("WED")) {
             MqttMessage newMessage = new MqttMessage(
-                    String.format("Device \"%s\" had %l movements in last two minutes.", deviceId, count).getBytes());
+                    String.format("Device \"%s\" had %d movement.", deviceId)
+                            .getBytes());
             newMessage.setQos(1);
             try {
-                client.publish("/device/WED", newMessage);
+                client.publish("/device/ESP", newMessage);
             } catch (MqttException e) {
                 System.err.println("Error sending message to broker");
                 e.printStackTrace();
             }
+
         }
+
     }
 
     private static void listen(String topic, MqttMessage message, ObjectMapper objectMapper, MqttClient client) {
@@ -67,10 +86,12 @@ public class App {
             }
 
             List<StoredMessage> messages = db.get(deviceId);
-            messages.add(new StoredMessage(deviceId, receivedMessage, sensorType, System.currentTimeMillis()));
+            StoredMessage storedMessage = new StoredMessage(deviceId, receivedMessage, sensorType,
+                    System.currentTimeMillis());
+            messages.add(storedMessage);
 
-            if (receivedMessage.getMovement() == 1 && deviceId.equals("EAD")) {
-                readAndSendActuatorMessage(deviceId, client);
+            if (receivedMessage.getMovement() == 1 && deviceId.equals("ESP")) {
+                readAndSendActuatorMessage(deviceId, receivedMessage.getMovement(), client);
             }
 
         } catch (IOException e) {
@@ -78,7 +99,7 @@ public class App {
         }
     }
 
-    public static void main(String[] args) throws MqttException {
+    public static void main(String[] args) {
         System.out.println("CTRL started");
         ObjectMapper objectMapper = new ObjectMapper();
 
@@ -103,6 +124,11 @@ public class App {
             int qos = 1;
             client.subscribe(topic, qos);
 
+        } catch (MqttException e) {
+            System.err.println("Error connecting to broker");
+            e.printStackTrace();
+            if (!e.getMessage().equals("Client is connected")) {
+            }
         }
     }
 }
